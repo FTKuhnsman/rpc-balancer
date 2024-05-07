@@ -1,0 +1,15 @@
+version: '3'
+
+services:
+  rpcbalancer:
+    image: ftkuhnsman/rpc-balancer:latest
+    ports:
+      - 8080:8080
+      - 8081:8081
+    command: '
+      -rpcport 8080
+      -metricsport 8081
+      -node https://arb1.arbitrum.io/rpc
+      -node https://rpc.ankr.com/arbitrum
+      -healthcheckinterval 10
+      '
