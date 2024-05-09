@@ -1,7 +1,6 @@
 package rpcbalancer
 
 import (
-	"log"
 	"sync"
 
 	"github.com/valyala/fasthttp"

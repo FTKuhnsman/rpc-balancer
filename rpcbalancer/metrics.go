@@ -2,7 +2,6 @@ package rpcbalancer
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"sync"
 

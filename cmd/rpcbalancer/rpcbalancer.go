@@ -30,6 +30,7 @@ func main() {
 		nodes               []string
 		fallback            string
 		selectionMethod     string
+		loglevel            string
 	)
 
 	//parse command line flags
@@ -38,9 +39,12 @@ func main() {
 	flag.StringVar(&metricsPort, "metricsport", "8081", "Port to run the metrics server on (default 8081)")
 	flag.StringVar(&fallback, "fallback", "", "Fallback node to use (default: none)")
 	flag.StringVar(&selectionMethod, "selectionmethod", "failover", "Selection method to use (default: failover; other options are roundrobin and random)")
+	flag.StringVar(&loglevel, "loglevel", "info", "Log level to use (default: info)")
 	flag.IntVar(&healthcheckinterval, "healthcheckinterval", 5, "Interval in seconds to check node health (default 5)")
 	flag.Var((*stringSlice)(&nodes), "node", "Node to add to the pool")
 	flag.Parse()
+
+	rpcbalancer.SetLogLevel(loglevel)
 	// create a new pool
 	pool := rpcbalancer.NewPool(selectionMethod)
 

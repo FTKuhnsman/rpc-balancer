@@ -6,12 +6,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"math/rand"
 	"net/http"
 	"sync"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
 )
 
@@ -93,7 +93,7 @@ func (p *Pool) getNodeByFailoverOrder() (*node, bool) {
 	defer p.mu.RUnlock()
 
 	for i := 0; i < len(p.Nodes); i++ {
-		// DEBUG
+		// DEBUGGING ONLY
 		// log.Print(p.Nodes[i].URI, p.Nodes[i].Healthy)
 		if p.Nodes[i].Healthy {
 			return p.Nodes[i], false
@@ -145,13 +145,13 @@ func (p *Pool) HandleRequest(ctx *fasthttp.RequestCtx) {
 	// Unmarshal the request body into a struct for caching
 	var jRPCReq jsonRPCPayload
 
-	// DEBUG
-	// log.Print(string(ctx.PostBody()))
-
 	err := json.Unmarshal(ctx.PostBody(), &jRPCReq)
 	if err != nil {
 		ctx.Error("Failed to unmarshal request: "+err.Error(), 520)
-		log.Print("Failed to unmarshal request.")
+		log.WithFields(logrus.Fields{
+			"error":    err,
+			"req_body": string(ctx.PostBody()),
+		}).Error("Failed to unmarshal request.")
 		// update request metrics
 		go metrics.IncrementInvalidRequests()
 		return
@@ -165,12 +165,14 @@ func (p *Pool) HandleRequest(ctx *fasthttp.RequestCtx) {
 		node, fallback := p.getHealthyNode()
 		if fallback && node == nil {
 			ctx.Error("No healthy nodes available", 521)
-			log.Printf("No healthy nodes available")
+			log.Error("No healthy nodes available")
 			return
 		}
 
-		log.Printf("Node tried: %s", node.URI)
-		log.Printf("Fallback:%v", fallback)
+		log.WithFields(logrus.Fields{
+			"node":        node.URI,
+			"is_fallback": fallback,
+		}).Debug("selected node")
 
 		// Set the request host to the backend server
 		//req.Header.SetHost(node.Client.Addr)
@@ -193,11 +195,16 @@ func (p *Pool) HandleRequest(ctx *fasthttp.RequestCtx) {
 			switch fallback {
 			case true:
 				ctx.Error("Request failed at fallback: ", 521)
-				log.Printf("Request failed at fallback")
+				log.WithFields(logrus.Fields{
+					"error": err,
+				}).Error("Request failed at fallback")
 				return
 			default:
 				node.SetHealthy(false)
-				log.Printf("Request failed. Node set to unhealthy.")
+				log.WithFields(logrus.Fields{
+					"node":    node.URI,
+					"healthy": node.Healthy,
+				}).Error("Request failed. Node set to unhealthy.")
 				continue
 			}
 		}
@@ -206,11 +213,15 @@ func (p *Pool) HandleRequest(ctx *fasthttp.RequestCtx) {
 			switch fallback {
 			case true:
 				ctx.Error("Request failed at fallback: ", 521)
-				log.Printf("Request failed at fallback")
+				log.WithFields(logrus.Fields{
+					"http_status_code": resp.StatusCode(),
+				}).Error("Request failed at fallback")
 				return
 			default:
 				node.SetHealthy(false)
-				log.Printf("Request failed. Node set to unhealthy.")
+				log.WithFields(logrus.Fields{
+					"http_status_code": resp.StatusCode(),
+				}).Error("Request failed. Node set to unhealthy.")
 				continue
 			}
 		}
@@ -222,7 +233,7 @@ func (p *Pool) HandleRequest(ctx *fasthttp.RequestCtx) {
 		resp.Header.VisitAll(func(key, value []byte) {
 			ctx.Response.Header.SetBytesKV(key, value)
 		})
-		log.Printf("Request succeeded")
+		log.Info("Request succeeded")
 		return
 	}
 }
@@ -233,7 +244,10 @@ func (p *Pool) StartHealthCheckLoop(frequency int) {
 			if !n.Healthy {
 				height, err := GetBlockHeight(n.URI)
 				if err != nil {
-					log.Printf("Error getting block height: %v", err)
+					log.WithFields(logrus.Fields{
+						"error": err,
+						"node":  n.URI,
+					}).Error("Error getting block height")
 					n.SetHealthy(false)
 				} else {
 					n.SetHealthy(true)
@@ -286,7 +300,7 @@ func GetBlockHeight(target string) (int64, error) {
 	}
 
 	if resp.StatusCode != 200 {
-		return 0, fmt.Errorf("error getting block height")
+		return 0, fmt.Errorf("http_status_code: %d", resp.StatusCode)
 	}
 
 	defer resp.Body.Close()
@@ -303,7 +317,7 @@ func GetBlockHeight(target string) (int64, error) {
 
 	blockHeight, err := hexStringToInt64(result["result"].(string))
 	if err != nil {
-		return 0, fmt.Errorf("error getting block height")
+		return 0, err
 	}
 
 	return blockHeight, nil
