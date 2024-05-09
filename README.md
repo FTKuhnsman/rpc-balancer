@@ -38,7 +38,7 @@ go build
 ## Running the application
 
 ```
-./rpc-balancer -port <rpc_port> -metricsport <metrics_port> -healthcheckinterval <interval> -node <rpc_endpoint_1> -node <rpc_endpoint_2> ... -fallback <fallback_endpoint>
+./rpc-balancer -rpcport <rpc_port> -metricsport <metrics_port> -healthcheckinterval <interval> -node <rpc_endpoint_1> -node <rpc_endpoint_2> ... -fallback <fallback_endpoint>
 ```
 Replace `<rpc_port>`, `<metrics_port>`, `<interval>`, `<rpc_endpoint_1>`, `<rpc_endpoint_2>`, and `<fallback_endpoint>` with your desired values.
 
@@ -52,12 +52,13 @@ RPC Balancer accepts the following command-line flags:
 - `-metricsport`: Port to run the metrics server on (default 8081).
 - `-fallback`: Fallback node to use (default: none).
 - `-healthcheckinterval`: Interval in seconds to check node health (default 5).
+- `-selectionmethod`: Order to select nodes (default: failover; other options include: roundrobin, random)
 - `-node`: Node to add to the pool. This flag can be repeated to add multiple nodes.
 
 Example usage:
 
 ```
-./rpc-balancer -port 8080 -metricsport 8081 -healthcheckinterval 10 -node http://rpc1.example.com -node http://rpc2.example.com -fallback http://fallback.example.com
+./rpc-balancer -rpcport 8080 -metricsport 8081 -healthcheckinterval 10 -selectionmethod roundrobin -node http://rpc1.example.com -node http://rpc2.example.com -fallback http://fallback.example.com
 ```
 
 ## Docker Installation
@@ -111,7 +112,7 @@ services:
       - 8080:8080
       - 8081:8081
     command: |
-      -port 8080
+      -rpcport 8080
       -metricsport 8081
       -node https://arb1.arbitrum.io/rpc
       -node https://rpc.ankr.com/arbitrum

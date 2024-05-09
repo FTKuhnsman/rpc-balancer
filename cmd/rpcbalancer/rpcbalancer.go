@@ -29,6 +29,7 @@ func main() {
 		healthcheckinterval int
 		nodes               []string
 		fallback            string
+		selectionMethod     string
 	)
 
 	//parse command line flags
@@ -36,11 +37,12 @@ func main() {
 	flag.StringVar(&rpcPort, "rpcport", "8080", "Port to run the server on (default 8080)")
 	flag.StringVar(&metricsPort, "metricsport", "8081", "Port to run the metrics server on (default 8081)")
 	flag.StringVar(&fallback, "fallback", "", "Fallback node to use (default: none)")
+	flag.StringVar(&selectionMethod, "selectionmethod", "failover", "Selection method to use (default: failover; other options are roundrobin and random)")
 	flag.IntVar(&healthcheckinterval, "healthcheckinterval", 5, "Interval in seconds to check node health (default 5)")
 	flag.Var((*stringSlice)(&nodes), "node", "Node to add to the pool")
 	flag.Parse()
 	// create a new pool
-	pool := rpcbalancer.NewPool()
+	pool := rpcbalancer.NewPool(selectionMethod)
 
 	// add nodes to the pool
 	for i, addr := range nodes {

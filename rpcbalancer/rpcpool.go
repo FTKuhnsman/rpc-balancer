@@ -2,10 +2,12 @@ package rpcbalancer
 
 import (
 	"bytes"
+	//"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"net/http"
 	"sync"
 	"time"
@@ -48,16 +50,20 @@ func (n *node) SetHealthy(healthy bool) {
 }
 
 type Pool struct {
-	Nodes    map[int]*node
-	numNodes int
-	Fallback *node
-	mu       sync.RWMutex
+	Nodes           map[int]*node
+	numNodes        int
+	Fallback        *node
+	SelectionMethod string
+	RoundRobinChan  chan *node
+	mu              sync.RWMutex
 }
 
-func NewPool() *Pool {
+func NewPool(selectionMethod string) *Pool {
 	return &Pool{
-		Nodes: make(map[int]*node),
-		mu:    sync.RWMutex{},
+		Nodes:           make(map[int]*node),
+		SelectionMethod: selectionMethod,
+		RoundRobinChan:  make(chan *node, 1000), // setting a buffer size of 1000 to avoid blocking. This is a temporary fix and should be replaced with a more robust solution
+		mu:              sync.RWMutex{},
 	}
 }
 
@@ -65,17 +71,67 @@ func (p *Pool) AddNode(n *node, id int) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.Nodes[id] = n
+	p.RoundRobinChan <- n
 	p.numNodes++
 }
 
 func (p *Pool) getHealthyNode() (*node, bool) {
+	switch p.SelectionMethod {
+	case "failover":
+		return p.getNodeByFailoverOrder()
+	case "roundrobin":
+		return p.getNodeByRoundRobin()
+	case "random":
+		return p.getNodeByRandom()
+	default:
+		return p.getNodeByFailoverOrder()
+	}
+}
+
+func (p *Pool) getNodeByFailoverOrder() (*node, bool) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 
 	for i := 0; i < len(p.Nodes); i++ {
-		log.Print(p.Nodes[i].URI, p.Nodes[i].Healthy)
+		// DEBUG
+		// log.Print(p.Nodes[i].URI, p.Nodes[i].Healthy)
 		if p.Nodes[i].Healthy {
 			return p.Nodes[i], false
+		}
+	}
+
+	return p.Fallback, true
+}
+
+func (p *Pool) getNodeByRoundRobin() (*node, bool) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	for i := 0; i < len(p.Nodes); i++ {
+		n := <-p.RoundRobinChan
+		p.RoundRobinChan <- n
+		if n.Healthy {
+			return n, false
+		}
+	}
+
+	return p.Fallback, true
+}
+
+func (p *Pool) getNodeByRandom() (*node, bool) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	var keys []int
+	for k := range p.Nodes {
+		keys = append(keys, k)
+	}
+
+	rand.Shuffle(len(keys), func(i, j int) { keys[i], keys[j] = keys[j], keys[i] })
+
+	for _, k := range keys {
+		if p.Nodes[k].Healthy {
+			return p.Nodes[k], false
 		}
 	}
 
@@ -88,6 +144,10 @@ func (p *Pool) HandleRequest(ctx *fasthttp.RequestCtx) {
 
 	// Unmarshal the request body into a struct for caching
 	var jRPCReq jsonRPCPayload
+
+	// DEBUG
+	// log.Print(string(ctx.PostBody()))
+
 	err := json.Unmarshal(ctx.PostBody(), &jRPCReq)
 	if err != nil {
 		ctx.Error("Failed to unmarshal request: "+err.Error(), 520)
@@ -96,9 +156,6 @@ func (p *Pool) HandleRequest(ctx *fasthttp.RequestCtx) {
 		go metrics.IncrementInvalidRequests()
 		return
 	}
-
-	// DEBUG
-	//log.Print(string(ctx.PostBody()))
 
 	// update request metrics
 	go metrics.IncrementTotalRequests(jRPCReq.Method)
@@ -189,10 +246,12 @@ func (p *Pool) StartHealthCheckLoop(frequency int) {
 }
 
 type jsonRPCPayload struct {
-	Jsonrpc string   `json:"jsonrpc"`
-	ID      int      `json:"id"`
-	Method  string   `json:"method"`
-	Params  []string `json:"params"`
+	Jsonrpc string      `json:"jsonrpc"`
+	ID      int         `json:"id"`
+	Method  string      `json:"method,omitempty"`
+	Params  interface{} `json:"params,omitempty"`
+	Result  interface{} `json:"result,omitempty"`
+	Error   interface{} `json:"error,omitempty"`
 }
 
 func GetBlockHeight(target string) (int64, error) {
