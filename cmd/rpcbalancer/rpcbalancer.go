@@ -6,6 +6,8 @@ import (
 	_ "net/http/pprof"
 	"rpb-balancer/rpcbalancer"
 	"sync"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // Define a custom type to store a slice of strings
@@ -66,9 +68,11 @@ func main() {
 	var wg sync.WaitGroup
 
 	wg.Add(1)
+	log.Info("Starting webserver")
 	go rpcbalancer.RunWebServer(&wg, rpcPort, pool)
 
 	wg.Add(1)
+	log.Info("Starting metrics server")
 	go rpcbalancer.RunMetricsServer(&wg, metricsPort)
 
 	wg.Wait()
