@@ -109,8 +109,8 @@ services:
   rpcbalancer:
     image: ftkuhnsman/rpc-balancer:latest
     ports:
-      - 8080:8080
-      - 8081:8081
+      - 127.0.0.1:8080:8080
+      - 127.0.0.1:8081:8081
     command: |
       -rpcport 8080
       -metricsport 8081
