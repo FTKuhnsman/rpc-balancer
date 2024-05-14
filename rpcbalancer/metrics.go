@@ -16,7 +16,7 @@ type Metrics struct {
 	BlockHeight      prometheus.Gauge
 	FailoverRequests *prometheus.CounterVec
 	RequestsByMethod *prometheus.CounterVec
-	Healthy          prometheus.Gauge
+	Healthy          *prometheus.GaugeVec
 }
 
 func NewMetrics() *Metrics {
@@ -43,11 +43,12 @@ func NewMetrics() *Metrics {
 		[]string{"endpoint"},
 	)
 
-	healthy := prometheus.NewGauge(
+	healthy := prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "service_is_healthy",
-			Help: "Current status of node health",
+			Name: "endpoint_is_healthy",
+			Help: "Current endpoint health",
 		},
+		[]string{"endpoint"},
 	)
 
 	deniedRequests := prometheus.NewCounter(
@@ -97,11 +98,11 @@ func (m *Metrics) IncrementTotalFailoverRequestsByEndpoint(endpoint string) {
 	m.FailoverRequests.WithLabelValues(endpoint).Inc()
 }
 
-func (m *Metrics) UpdateHealth() {
-	if nodeHealth {
-		m.Healthy.Set(1)
+func (m *Metrics) SetHealth(endpoint string, healthy bool) {
+	if healthy {
+		m.Healthy.WithLabelValues(endpoint).Set(1)
 	} else {
-		m.Healthy.Set(0)
+		m.Healthy.WithLabelValues(endpoint).Set(0)
 	}
 }
 

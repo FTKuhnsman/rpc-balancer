@@ -25,12 +25,7 @@ type node struct {
 
 func NewNode(addr string) *node {
 
-	// parsedURL, err := url.Parse(addr)
-	// if err != nil {
-	// 	log.Fatal("Failed to parse URL: ", err)
-	// }
-
-	//host := parsedURL.Host
+	metrics.SetHealth(addr, true)
 	return &node{
 		Client: &fasthttp.Client{
 			// Addr:                host,
@@ -47,6 +42,7 @@ func (n *node) SetHealthy(healthy bool) {
 	defer n.mu.Unlock()
 
 	n.Healthy = healthy
+	metrics.SetHealth(n.URI, healthy)
 }
 
 type Pool struct {
