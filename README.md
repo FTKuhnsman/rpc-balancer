@@ -126,7 +126,18 @@ services:
 ```
 docker-compose up
 ```
+## Test it out
+Run the following command and verify you get a response
 
+```
+curl --location 'http://localhost:8080/<url key if set>/' \
+--header 'Content-Type: application/json' \
+--data '{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "method": "eth_blockNumber"
+}'
+```
 ## Metrics
 
 RPC Balancer exposes several metrics to monitor the health and performance of the service:
