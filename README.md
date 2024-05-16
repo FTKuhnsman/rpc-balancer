@@ -9,6 +9,7 @@ RPC Balancer is a Go application that acts as a proxy for Ethereum RPC endpoints
 - Implements automatic failover logic.
 - Allows specifying a fallback endpoint. If not set, the fallback will default to the first endpoint provided
 - Provides a web server for handling RPC requests.
+- Option to set url path authentication.
 - Supports a separate metrics server for monitoring.
 - **Health check feature:** By setting the health check interval, the service periodically polls unhealthy endpoints with an `eth_blockHeight` request to check if they start responding again. If successful, the endpoint is set as healthy and added back to the pool.
 
@@ -38,7 +39,7 @@ go build
 ## Running the application
 
 ```
-./rpc-balancer -rpcport <rpc_port> -metricsport <metrics_port> -healthcheckinterval <interval> -node <rpc_endpoint_1> -node <rpc_endpoint_2> ... -fallback <fallback_endpoint>
+./rpc-balancer -rpcport <rpc_port> -metricsport <metrics_port> -healthcheckinterval <interval> -urlkey <url_key> -node <rpc_endpoint_1> -node <rpc_endpoint_2> ... -fallback <fallback_endpoint>
 ```
 Replace `<rpc_port>`, `<metrics_port>`, `<interval>`, `<rpc_endpoint_1>`, `<rpc_endpoint_2>`, and `<fallback_endpoint>` with your desired values.
 
@@ -54,11 +55,12 @@ RPC Balancer accepts the following command-line flags:
 - `-healthcheckinterval`: Interval in seconds to check node health (default 5).
 - `-selectionmethod`: Order to select nodes (default: failover; other options include: roundrobin, random)
 - `-node`: Node to add to the pool. This flag can be repeated to add multiple nodes.
+- `urlkey`: Authentication key expected in the url path when making RPC calls (default ""). No authentication is required if this flag is not set.
 
 Example usage:
 
 ```
-./rpc-balancer -rpcport 8080 -metricsport 8081 -healthcheckinterval 10 -selectionmethod roundrobin -node http://rpc1.example.com -node http://rpc2.example.com -fallback http://fallback.example.com
+./rpc-balancer -rpcport 8080 -metricsport 8081 -healthcheckinterval 10 -selectionmethod roundrobin -urlkey password123 -node http://rpc1.example.com -node http://rpc2.example.com -fallback http://fallback.example.com
 ```
 
 ## Docker Installation
