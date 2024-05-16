@@ -33,6 +33,7 @@ func main() {
 		fallback            string
 		selectionMethod     string
 		loglevel            string
+		urlKey              string
 	)
 
 	//parse command line flags
@@ -42,6 +43,7 @@ func main() {
 	flag.StringVar(&fallback, "fallback", "", "Fallback node to use (default: none)")
 	flag.StringVar(&selectionMethod, "selectionmethod", "failover", "Selection method to use (default: failover; other options are roundrobin and random)")
 	flag.StringVar(&loglevel, "loglevel", "info", "Log level to use (default: info)")
+	flag.StringVar(&rpcbalancer.UrlKey, "urlkey", "", "URL key to use (default: \"\"")
 	flag.IntVar(&healthcheckinterval, "healthcheckinterval", 5, "Interval in seconds to check node health (default 5)")
 	flag.Var((*stringSlice)(&nodes), "node", "Node to add to the pool")
 	flag.Parse()
@@ -69,7 +71,7 @@ func main() {
 
 	wg.Add(1)
 	log.Info("Starting webserver")
-	go rpcbalancer.RunWebServer(&wg, rpcPort, pool)
+	go rpcbalancer.RunWebServer(&wg, rpcPort, pool, urlKey)
 
 	wg.Add(1)
 	log.Info("Starting metrics server")
